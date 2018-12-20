@@ -1,13 +1,13 @@
 import { parseNonAttribute } from '../src/selector';
 
 describe('query parser', () => {
-  it('parse CSS `id` selector', () => {
+  it('parse id selector', () => {
     const q = parseNonAttribute('#hash');
-    expect(q).toEqual({
-      id: 'hash',
-      classNames: [],
-      attributes: [],
-      subQueries: []
-    });
+    expect(q.id).toBe('hash');
+  });
+
+  it('parse class selector', () => {
+    const q = parseNonAttribute('.good.morning');
+    expect(q.classNames).toEqual(['good', 'morning']);
   });
 });

@@ -12,7 +12,7 @@ export interface QuerySelector {
   subQueries: QuerySelector[];
 }
 
-const attrSelectorRE: RegExp = /(\[([\w\-_]+)([~|\^$*]?=)?(["'][^"']+["'])?\])/;
+const attrSelectorRE: RegExp = /\[([\w\-_]+)([~|\^$*]?=)?(["'][^"']+["'])?\]/;
 
 function createQuery(opts: {
   tagName?: string;
@@ -40,8 +40,22 @@ function splitClassPrefix(qualified: string): [string, string[]] {
 }
 
 export function parseAttributes(attr: string): QueryAttribute[] {
-  // TODO
-  throw void 0
+  const buf: QueryAttribute[] = [];
+  let close = attr.indexOf(']');
+  while (close > -1) {
+    const head = attr.substring(0, close + 1);
+    const m = head.match(attrSelectorRE);
+    if (m !== null) {
+      buf.push({
+        name: m[1],
+        op: m[2],
+        value: m[3]
+      });
+    }
+    attr = attr.substring(close + 1);
+    close = attr.indexOf(']');
+  }
+  return buf;
 }
 
 export function parseNonAttribute(selector: string): QuerySelector {
@@ -92,6 +106,20 @@ export function parseNonAttribute(selector: string): QuerySelector {
 }
 
 export function parseComponent(selector: string): QuerySelector {
-  // TODO
-  return (void 0 as unknown) as QuerySelector;
+  const matched = selector.match(attrSelectorRE);
+  if (matched !== null) {
+    if (matched.index === 0) {
+      return createQuery({
+        attributes: parseAttributes(selector)
+      });
+    } else {
+      const query = parseNonAttribute(selector.substring(0, matched.index));
+      query.attributes = parseAttributes(
+        selector.substring(matched.index as number)
+      );
+      return query;
+    }
+  } else {
+    return parseNonAttribute(selector);
+  }
 }
