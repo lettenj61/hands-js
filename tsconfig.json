@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "declaration": true,
+    "declarationDir": "dist/types",
     "target": "esnext",
     "module": "esnext",
     "strict": true,
@@ -10,8 +11,10 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "sourceMap": true,
+    "outDir": "dist/temp",
     "baseUrl": ".",
     "types": [
+      "vue",
       "jest"
     ],
     "paths": {
@@ -29,7 +32,8 @@
     "src/**/*.ts",
     "src/**/*.tsx",
     "__tests__/**/*.ts",
-    "__tests__/**/*.tsx"
+    "__tests__/**/*.tsx",
+    "__tests__/**/*.vue"
   ],
   "exclude": [
     "node_modules"

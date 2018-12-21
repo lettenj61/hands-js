@@ -39,6 +39,50 @@ function splitClassPrefix(qualified: string): [string, string[]] {
   return [head, rest.filter(e => e !== '')];
 }
 
+function splitSelectors(selectors: string): string[] {
+  const buf: string[] = [];
+  const chars = selectors.split('');
+  let part = '';
+  let quote = '';
+  let inQuote = false;
+  for (let i = 0; i < chars.length; i++) {
+    const ch = chars[i];
+    switch (ch) {
+      case ' ':
+      case '\t':
+      case '\r':
+      case '\n':
+        if (inQuote) {
+          part += ' ';
+        } else {
+          if (part !== '') {
+            buf.push(part);
+            part = '';
+          }
+        }
+        break;
+      case '"':
+      case "'":
+        if (!inQuote) {
+          inQuote = true;
+          quote = ch;
+        } else if (quote === ch) {
+          inQuote = false;
+          quote = '';
+        }
+        part += ch;
+        break;
+      default:
+        part += ch;
+        break;
+    }
+  }
+  if (part !== '') {
+    buf.push(part);
+  }
+  return buf;
+}
+
 export function parseAttributes(attr: string): QueryAttribute[] {
   const buf: QueryAttribute[] = [];
   let close = attr.indexOf(']');
@@ -49,7 +93,7 @@ export function parseAttributes(attr: string): QueryAttribute[] {
       buf.push({
         name: m[1],
         op: m[2],
-        value: m[3]
+        value: m[3].replace(/["']/g, '')
       });
     }
     attr = attr.substring(close + 1);
@@ -114,12 +158,144 @@ export function parseComponent(selector: string): QuerySelector {
       });
     } else {
       const query = parseNonAttribute(selector.substring(0, matched.index));
-      query.attributes = parseAttributes(
-        selector.substring(matched.index as number)
-      );
+      query.attributes = parseAttributes(selector.substring(matched.index!));
       return query;
     }
   } else {
     return parseNonAttribute(selector);
+  }
+}
+
+export function parseSelectors(selectors: string): QuerySelector {
+  const parts = splitSelectors(selectors);
+  try {
+    const qs = parseComponent(parts[0]);
+    if (parts.length === 0) {
+      return qs;
+    } else {
+      return {
+        ...qs,
+        subQueries: parts.slice(1).map(parseComponent)
+      };
+    }
+  } catch (e) {
+    throw e;
+  }
+}
+
+export function filterElements<E extends HTMLElement>(
+  elements: ArrayLike<Element>,
+  query: QuerySelector
+): E[] {
+  const { tagName, id, classNames, attributes } = query;
+  const ret = [];
+  for (let i = 0; i < elements.length; i++) {
+    const elem = elements[i] as E;
+    let pass = true;
+
+    if (tagName) {
+      pass = pass && elem.tagName === tagName.toUpperCase();
+    }
+
+    if (id) {
+      pass = pass && elem.getAttribute('id') === id;
+    }
+
+    const currentClasses = elem.className.split(' ');
+    pass = pass && classNames.every(cls => currentClasses.indexOf(cls) > -1);
+
+    pass =
+      pass &&
+      attributes.every(({ name, op, value }) => {
+        const attrValue = elem.getAttribute(name)!;
+        if (name && op && value) {
+          switch (op) {
+            case '=':
+              return attrValue == value;
+            case '~=':
+              return attrValue.split(' ').indexOf(value) > -1;
+            case '|=':
+              return attrValue === value || attrValue === `${value}-`;
+            case '^=':
+              return attrValue.startsWith(value);
+            case '$=':
+              return attrValue.endsWith(value);
+            case '*=':
+              return attrValue.indexOf(value) > -1;
+            default:
+              return false;
+          }
+        } else if (name) {
+          return attrValue != null;
+        }
+
+        return false;
+      });
+
+    if (pass) {
+      ret.push(elem);
+    }
+  }
+
+  return ret;
+}
+
+export class Eyes {
+  private currentNode: ParentNode;
+
+  constructor(node?: ParentNode) {
+    this.currentNode = node || document;
+  }
+
+  collectNodes(): Element[] {
+    const nodes =
+      this.currentNode === document
+        ? document.body.children
+        : this.currentNode.children;
+
+    return this.collectChildren(nodes, true);
+  }
+
+  collectChildren(nodes: ArrayLike<Element>, withParent?: boolean): Element[] {
+    const ret: Element[] = [];
+    const append = (children: ArrayLike<Element>, withParent0: boolean) => {
+      for (let i = 0; i < children.length; i++) {
+        if (withParent0 === true) {
+          ret.push(children[i]);
+        }
+        if (children[i].children.length) {
+          append(children[i].children, true);
+        }
+      }
+    };
+
+    append(nodes, withParent || false);
+    return ret;
+  }
+
+  search<E extends HTMLElement = HTMLElement>(selectors: string): E[] {
+    const qs = parseSelectors(selectors);
+    const parents = filterElements<E>(this.collectNodes(), qs);
+
+    if (qs.subQueries.length > 0) {
+      return qs.subQueries.reduce(
+        (result: E[], subQuery: QuerySelector) => {
+          result = filterElements<E>(this.collectChildren(result), subQuery);
+          return result;
+        },
+        parents as E[]
+      );
+    } else {
+      return parents;
+    }
+  }
+
+  watch(parentNode: ParentNode): this {
+    if (parentNode == null) {
+      console.warn('unable to watch null element, skipping.');
+    } else {
+      this.currentNode = parentNode;
+    }
+    return this;
   }
 }
