@@ -35,13 +35,11 @@ export default class Hands {
   }
 
   inject(event: any, el: Element): void {
-    /*
     if ('srcElement' in event) {
       event.target = event.srcElement;
     } else {
-      event.rarget = el;
+      event.target = el;
     }
-    */
     event.preventDefault =
       event.preventDefault ||
       function() {
