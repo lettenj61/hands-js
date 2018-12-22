@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>IE5 Document Mode Test</title>
+  <script src="https://unpkg.com/core-js-bundle@3.0.0-beta.6/minified.js"></script>
+  <script src="../dist/hands.js"></script>
+</head>
+<body>
+  <div id="leading">
+    <h2>Run in IE with document mode 5!</h2>
+    <h3>Hands.js requires ES6+ polyfill to work (try core-js)</h3>
+  </div>
+  <div id="main">
+    <div id="not-form">
+      <span class="content">text</span>
+      <input type="text" name="login" id="login">
+      <p class="out"></p>
+    </div>
+    <form action="/no-such-url" name="my-form">
+      <input type="text" name="control1" id="control1">
+      <p>
+        <input type="checkbox" name="checl1" id="check1">
+      </p>
+      <div class="control radio">
+        <input type="radio" name="radio1"> VOL1
+        <input type="radio" name="radio1"> VOL2
+        <input type="radio" name="radio1"> VOL3
+      </div>
+    </form>
+  </div>
+  <script>
+    var hands = new handsjs.Hands();
+    hands.on('#login', 'keyup', function(e) {
+      e.target.value = e.target.value.toUpperCase();
+    });
+    hands.on('#login', 'keyup', function(e) {
+      hands.eyes.search('p.out')[0].innerText = e.target.value;
+    });
+  </script>
+</body>
+</html>

@@ -4,6 +4,7 @@ type EventHandler = (e?: Event) => any;
 type HandlerMap = { [type: string]: EventHandler[] };
 type ListenerEntry = {
   el: Element;
+  hijackedFn?: EventHandler; // listener injected by handsjs
   nativeHandlers: string[];
   handlers: HandlerMap;
 };
@@ -14,14 +15,14 @@ export default class Hands {
   private idCounter: number;
   eyes: Eyes;
   registry: { [id: string]: ListenerEntry };
-  eventSupport: boolean;
+  extendEventObject: boolean;
   preserveNative: boolean; // for testing environment, such as JSDom
 
   constructor() {
     this.eyes = new Eyes();
-    this.idCounter = -1;
+    this.idCounter = 0;
     this.registry = {};
-    this.eventSupport = 'addEventListener' in window;
+    this.extendEventObject = !('addEventListener' in window);
     this.preserveNative = true;
   }
 
@@ -32,6 +33,10 @@ export default class Hands {
       }
     }
     return void 0;
+  }
+
+  hasPropagationFns(event: any): boolean {
+    return 'preventDefault' in event && 'stopPropagation' in event;
   }
 
   inject(event: any, el: Element): void {
@@ -64,6 +69,31 @@ export default class Hands {
     listener.handlers[type].push(callback);
   }
 
+  handleNativeHandler(
+    target: any,
+    type: string,
+    listener: ListenerEntry
+  ): void {
+    // check for native handlers
+    let nativeFn =
+      (
+        typeof target['on' + type] === 'function' &&
+        target['on' + type] !== listener.hijackedFn
+      )
+        ? (target['on' + type] as EventHandler)
+        : void 0;
+
+    if (
+      this.preserveNative &&
+      nativeFn &&
+      listener.nativeHandlers.indexOf(type) === -1
+    ) {
+      listener.nativeHandlers.push(type);
+      this.addHandler(listener, type, nativeFn);
+      target['on' + type] = null;
+    }
+  }
+
   on(el: Element | string, type: string, callback: EventHandler): void {
     if (typeof el === 'string') {
       this.eyes
@@ -80,7 +110,15 @@ export default class Hands {
       return;
     }
 
+    const self = this;
     let target = el as any;
+    let first = false;
+
+    // translate DOMContentLoaded as onload event
+    if (type === 'DOMContentLoaded') {
+      target = window;
+      type = 'load';
+    }
 
     // check if the element is already registered
     let key = this.findKey(el);
@@ -91,48 +129,32 @@ export default class Hands {
         nativeHandlers: [],
         handlers: {}
       };
+      first = true;
     }
 
     const listener = this.registry[key];
 
-    // translate DOMContentLoaded as onload event
-    if (type === 'DOMContentLoaded') {
-      target = window;
-      type = 'load';
-    }
-
     // check for native handlers
-    let nativeFn =
-      typeof target['on' + type] === 'function'
-        ? (target['on' + type] as EventHandler)
-        : void 0;
-
-    if (
-      this.preserveNative &&
-      nativeFn &&
-      listener.nativeHandlers.indexOf(type) === -1
-    ) {
-      listener.nativeHandlers.push(type);
-      this.addHandler(listener, type, nativeFn);
-      target['on' + type] = null;
+    if (first) {
+      this.handleNativeHandler(target, type, listener);
+      if (target['on' + type] == null) {
+        listener.hijackedFn = function(event?: Event): any {
+          event = event || window.event;
+          if (self.extendEventObject && !self.hasPropagationFns(event)) {
+            self.inject(event, el);
+          }
+          let result;
+          listener.handlers[type].forEach(handler => {
+            result = handler(event);
+          });
+          return result;
+        };
+      }
+      target['on' + type] = listener.hijackedFn;
     }
 
     // register handler
     this.addHandler(listener, type, callback);
-
-    // attach listener to element
-    const self = this;
-    target['on' + type] = function(event?: Event): any {
-      event = event || window.event;
-      if (!self.eventSupport) {
-        self.inject(event, el);
-      }
-      let result;
-      listener.handlers[type].forEach(handler => {
-        result = handler(event);
-      });
-      return result;
-    };
   }
 
   removeListener(el: Element, type: string, callback: EventHandler): void {
