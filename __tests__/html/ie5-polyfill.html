@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
   <title>IE5 Polyfill Test</title>
   <script src="https://unpkg.com/core-js-bundle@3.0.0-beta.6/minified.js"></script>
-  <script src="../dist/hands-polyfill.js"></script>
+  <script src="../../dist/hands-polyfill.js"></script>
 </head>
 <body>
   <main class="main">
@@ -17,6 +17,9 @@
     var b = document.querySelector('#b');
     b.addEventListener('click', function() {
       alert('BBB');
+    });
+    b.addEventListener('mouseenter', function() {
+      console.log('ggg');
     });
   </script>
 </body>

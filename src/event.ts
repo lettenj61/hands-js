@@ -4,7 +4,7 @@ type EventHandler = (e?: Event) => any;
 type HandlerMap = { [type: string]: EventHandler[] };
 type ListenerEntry = {
   el: Element;
-  hijackedFn?: EventHandler; // listener injected by handsjs
+  hijacked: { [type: string]: EventHandler }; // listener injected by handsjs
   nativeHandlers: string[];
   handlers: HandlerMap;
 };
@@ -78,7 +78,7 @@ export default class Hands {
     let nativeFn =
       (
         typeof target['on' + type] === 'function' &&
-        target['on' + type] !== listener.hijackedFn
+        target['on' + type] !== listener.hijacked[type]
       )
         ? (target['on' + type] as EventHandler)
         : void 0;
@@ -127,7 +127,8 @@ export default class Hands {
       this.registry[key] = {
         el,
         nativeHandlers: [],
-        handlers: {}
+        handlers: {},
+        hijacked: {}
       };
       first = true;
     }
@@ -138,7 +139,7 @@ export default class Hands {
     if (first || listener.handlers[type] == null) {
       this.handleNativeHandler(target, type, listener);
       if (target['on' + type] == null) {
-        listener.hijackedFn = function(event?: Event): any {
+        listener.hijacked[type] = function(event?: Event): any {
           event = event || window.event;
           if (self.extendEventObject && !self.hasPropagationFns(event)) {
             self.inject(event, el);
@@ -150,7 +151,7 @@ export default class Hands {
           return result;
         };
       }
-      target['on' + type] = listener.hijackedFn;
+      target['on' + type] = listener.hijacked[type];
     }
 
     // register handler
