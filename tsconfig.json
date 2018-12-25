@@ -31,6 +31,7 @@
   "include": [
     "src/**/*.ts",
     "src/**/*.tsx",
+    "src/**/*.vue",
     "__tests__/**/*.ts",
     "__tests__/**/*.tsx",
     "__tests__/**/*.vue"
