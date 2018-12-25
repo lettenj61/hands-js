@@ -13,7 +13,7 @@ export interface QuerySelector {
 export declare function parseAttributes(attr: string): QueryAttribute[];
 export declare function parseNonAttribute(selector: string): QuerySelector;
 export declare function parseComponent(selector: string): QuerySelector;
-export declare function parseSelectors(selectors: string): QuerySelector;
+export declare function parseSelectors(selectors: string): QuerySelector[];
 export declare function filterElements<E extends HTMLElement>(
   elements: ArrayLike<Element>,
   query: QuerySelector

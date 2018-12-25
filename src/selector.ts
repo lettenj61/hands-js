@@ -39,7 +39,7 @@ function splitClassPrefix(qualified: string): [string, string[]] {
   return [head, rest.filter(e => e !== '')];
 }
 
-function splitSelectors(selectors: string): string[] {
+function splitSelector(selectors: string): string[] {
   const buf: string[] = [];
   const chars = selectors.split('');
   let part = '';
@@ -166,18 +166,22 @@ export function parseComponent(selector: string): QuerySelector {
   }
 }
 
-export function parseSelectors(selectors: string): QuerySelector {
-  const parts = splitSelectors(selectors);
+export function parseSelectors(selectors: string): QuerySelector[] {
+  const split = selectors.split(',');
   try {
-    const qs = parseComponent(parts[0]);
-    if (parts.length === 0) {
-      return qs;
-    } else {
-      return {
-        ...qs,
-        subQueries: parts.slice(1).map(parseComponent)
-      };
-    }
+    return split.reduce<QuerySelector[]>((queries, s) => {
+      const parts = splitSelector(s);
+      const baseQuery = parseComponent(parts[0].trim());
+      if (parts.length === 0) {
+        queries.push(baseQuery);
+      } else {
+        queries.push({
+          ...baseQuery,
+          subQueries: parts.slice(1).map(v => parseComponent(v.trim()))
+        });
+      }
+      return queries;
+    }, []);
   } catch (e) {
     throw e;
   }
@@ -274,20 +278,28 @@ export class Eyes {
   }
 
   search<E extends HTMLElement = HTMLElement>(selectors: string): E[] {
-    const qs = parseSelectors(selectors);
-    const parents = filterElements<E>(this.collectNodes(), qs);
+    const qss = parseSelectors(selectors);
 
-    if (qs.subQueries.length > 0) {
-      return qs.subQueries.reduce(
-        (result: E[], subQuery: QuerySelector) => {
-          result = filterElements<E>(this.collectChildren(result), subQuery);
-          return result;
-        },
-        parents as E[]
-      );
-    } else {
-      return parents;
-    }
+    return qss.reduce<E[]>((result, qs) => {
+      const parents = filterElements<E>(this.collectNodes(), qs);
+      if (qs.subQueries.length > 0) {
+        result = result.concat(
+          qs.subQueries.reduce(
+            (innerResult: E[], subQuery: QuerySelector) => {
+              innerResult = filterElements<E>(
+                this.collectChildren(innerResult),
+                subQuery
+              );
+              return innerResult;
+            },
+            parents as E[]
+          )
+        );
+      } else {
+        result = result.concat(parents);
+      }
+      return result;
+    }, []);
   }
 
   watch(parentNode: ParentNode): this {

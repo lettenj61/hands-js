@@ -59,25 +59,30 @@ describe('query selector', () => {
     const coll = eyes.search(selector);
     expect(coll).toEqual(Array.from(document.querySelectorAll(selector)));
   });
+
+  it('handle multiple selectors at once', () => {
+    const [el1, el2] = eyes.search<HTMLElement>('.text, #list-two');
+    expect(el1.tagName).toBe('SPAN');
+    expect(el2.tagName).toBe('UL');
+    expect(el2.innerHTML).toBe('<li>Orphan</li>');
+  });
 });
 
-describe('query selector specification', () => {
-  
-});
+describe('query selector specification', () => {});
 
 describe('query parser', () => {
   it('parse id selector', () => {
-    const { id } = parseSelectors('#hash');
+    const [{ id }] = parseSelectors('#hash');
     expect(id).toBe('hash');
   });
 
   it('parse class selector', () => {
-    const { classNames } = parseSelectors('.good.morning');
+    const [{ classNames }] = parseSelectors('.good.morning');
     expect(classNames).toEqual(['good', 'morning']);
   });
 
   it('parse attribute selector', () => {
-    const { attributes } = parseSelectors('[name="value"]');
+    const [{ attributes }] = parseSelectors('[name="value"]');
     expect(attributes).toEqual([
       {
         name: 'name',
@@ -88,29 +93,31 @@ describe('query parser', () => {
   });
 
   it('parse tag name selector', () => {
-    const { tagName } = parseSelectors('tbody');
+    const [{ tagName }] = parseSelectors('tbody');
     expect(tagName).toBe('tbody');
   });
 
   it('parse combined selector', () => {
     const q = parseSelectors('div#foo.wrapped.beautiful[safe^="blocked"]');
-    expect(q).toEqual({
-      tagName: 'div',
-      id: 'foo',
-      classNames: ['wrapped', 'beautiful'],
-      attributes: [
-        {
-          name: 'safe',
-          op: '^=',
-          value: 'blocked'
-        }
-      ],
-      subQueries: []
-    });
+    expect(q).toEqual([
+      {
+        tagName: 'div',
+        id: 'foo',
+        classNames: ['wrapped', 'beautiful'],
+        attributes: [
+          {
+            name: 'safe',
+            op: '^=',
+            value: 'blocked'
+          }
+        ],
+        subQueries: []
+      }
+    ]);
   });
 
   it('parse sub query', () => {
-    const { tagName, attributes, subQueries } = parseSelectors(
+    const [{ tagName, attributes, subQueries }] = parseSelectors(
       'select[name="foo"] option'
     );
     expect(tagName).toBe('select');
@@ -123,5 +130,29 @@ describe('query parser', () => {
     expect(subQueries).toHaveLength(1);
     expect(subQueries[0].tagName).toBe('option');
     expect(subQueries[0].id).toBeUndefined();
+  });
+
+  it('parse multiple selectors', () => {
+    const queries = parseSelectors('div, select[name^="foo"]');
+    expect(queries).toEqual([
+      {
+        tagName: 'div',
+        classNames: [],
+        attributes: [],
+        subQueries: []
+      },
+      {
+        tagName: 'select',
+        classNames: [],
+        attributes: [
+          {
+            name: 'name',
+            op: '^=',
+            value: 'foo'
+          }
+        ],
+        subQueries: []
+      }
+    ]);
   });
 });
