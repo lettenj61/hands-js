@@ -135,7 +135,7 @@ export default class Hands {
     const listener = this.registry[key];
 
     // check for native handlers
-    if (first) {
+    if (first || listener.handlers[type] == null) {
       this.handleNativeHandler(target, type, listener);
       if (target['on' + type] == null) {
         listener.hijackedFn = function(event?: Event): any {
